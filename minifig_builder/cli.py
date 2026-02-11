@@ -66,7 +66,7 @@ Examples:
   python -m minifig_builder input.xml
   python -m minifig_builder input.xml --values values.json
   python -m minifig_builder input.xml --max 5
-        """
+"""
     )
     
     parser.add_argument(
