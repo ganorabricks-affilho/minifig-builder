@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<INVENTORY>
+  <!-- Incomplete inventory - only heads and torsos -->
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>3626bpb0003</ITEMID>
+    <COLOR>3</COLOR>
+    <MINQTY>2</MINQTY>
+    <CATEGORY>Minifigure, Head</CATEGORY>
+    <ITEMNAME>Minifigure, Head Angry</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>973pb0100</ITEMID>
+    <COLOR>1</COLOR>
+    <MINQTY>2</MINQTY>
+    <CATEGORY>Minifigure, Torso</CATEGORY>
+    <ITEMNAME>Minifigure, Torso Castle</ITEMNAME>
+  </ITEM>
+</INVENTORY>

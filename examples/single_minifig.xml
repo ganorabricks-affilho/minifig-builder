@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<INVENTORY>
+  <!-- Single complete minifigure with no headgear -->
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>3626cpb0001</ITEMID>
+    <COLOR>3</COLOR>
+    <MINQTY>1</MINQTY>
+    <CATEGORY>Minifigure, Head</CATEGORY>
+    <ITEMNAME>Minifigure, Head Dual Sided</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>973c01</ITEMID>
+    <COLOR>5</COLOR>
+    <MINQTY>1</MINQTY>
+    <CATEGORY>Minifigure, Torso</CATEGORY>
+    <ITEMNAME>Minifigure, Torso Space</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>970c00</ITEMID>
+    <COLOR>5</COLOR>
+    <MINQTY>1</MINQTY>
+    <CATEGORY>Minifigure, Legs</CATEGORY>
+    <ITEMNAME>Minifigure, Hips and Legs Plain</ITEMNAME>
+  </ITEM>
+</INVENTORY>
