@@ -1,0 +1,5 @@
+# XML parsing
+lxml>=4.9.0
+
+# Data handling
+requests>=2.31.0

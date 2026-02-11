@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<INVENTORY>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>3626bpb0001</ITEMID>
+    <COLOR>3</COLOR>
+    <MINQTY>2</MINQTY>
+    <CATEGORY>Minifigure, Head</CATEGORY>
+    <ITEMNAME>Minifigure, Head Standard Grin</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>973pb0001</ITEMID>
+    <COLOR>1</COLOR>
+    <MINQTY>2</MINQTY>
+    <CATEGORY>Minifigure, Torso</CATEGORY>
+    <ITEMNAME>Minifigure, Torso Plain</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>970c00</ITEMID>
+    <COLOR>7</COLOR>
+    <MINQTY>2</MINQTY>
+    <CATEGORY>Minifigure, Legs</CATEGORY>
+    <ITEMNAME>Minifigure, Hips and Legs Plain</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>3626bpb0002</ITEMID>
+    <COLOR>3</COLOR>
+    <MINQTY>1</MINQTY>
+    <CATEGORY>Minifigure, Head</CATEGORY>
+    <ITEMNAME>Minifigure, Head Smirk</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>92746</ITEMID>
+    <COLOR>11</COLOR>
+    <MINQTY>1</MINQTY>
+    <CATEGORY>Minifigure, Hair</CATEGORY>
+    <ITEMNAME>Minifigure, Hair Tousled</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>30090</ITEMID>
+    <COLOR>1</COLOR>
+    <MINQTY>2</MINQTY>
+    <CATEGORY>Minifigure, Accessory</CATEGORY>
+    <ITEMNAME>Minifigure, Utensil Brush</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>973pb0256</ITEMID>
+    <COLOR>4</COLOR>
+    <MINQTY>1</MINQTY>
+    <CATEGORY>Minifigure, Torso</CATEGORY>
+    <ITEMNAME>Minifigure, Torso Fire Logo</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>970c00</ITEMID>
+    <COLOR>1</COLOR>
+    <MINQTY>1</MINQTY>
+    <CATEGORY>Minifigure, Legs</CATEGORY>
+    <ITEMNAME>Minifigure, Hips and Legs Plain</ITEMNAME>
+  </ITEM>
+  <ITEM>
+    <ITEMTYPE>P</ITEMTYPE>
+    <ITEMID>3624</ITEMID>
+    <COLOR>14</COLOR>
+    <MINQTY>3</MINQTY>
+    <CATEGORY>Brick</CATEGORY>
+    <ITEMNAME>Brick 1 x 1</ITEMNAME>
+  </ITEM>
+</INVENTORY>
