@@ -2,11 +2,11 @@
 
 import os
 import sys
-import json
 from pathlib import Path
 from typing import Optional
 from tempfile import TemporaryDirectory
 import shutil
+import xml.etree.ElementTree as ET
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,14 +45,7 @@ app.add_middleware(
 # Global state (in production, use a proper session/state management)
 latest_results = None
 cache_status = {}
-
-
-class ConfigRequest(BaseModel):
-    """API credentials configuration."""
-    consumer_key: str
-    consumer_secret: str
-    token: str
-    token_secret: str
+category_map_cache = None
 
 
 class AnalysisResult(BaseModel):
@@ -73,7 +66,8 @@ class ThemeResponse(BaseModel):
 def load_csv_themes() -> dict:
     """Load themes from M.csv."""
     themes = {}
-    csv_path = Path.cwd() / 'brickstore-data' / 'M.csv'
+    root_dir = Path(__file__).resolve().parents[1]
+    csv_path = root_dir / 'brickstore-data' / 'M.csv'
     
     if not csv_path.exists():
         return themes
@@ -97,69 +91,45 @@ def load_csv_themes() -> dict:
     return themes
 
 
+def load_category_map() -> dict:
+    """Load BrickLink category ID -> name mapping from categories.xml."""
+    global category_map_cache
+    if category_map_cache is not None:
+        return category_map_cache
+
+    root_dir = Path(__file__).resolve().parents[1]
+    categories_path = root_dir / 'brickstore-data' / 'categories.xml'
+
+    if not categories_path.exists():
+        category_map_cache = {}
+        return category_map_cache
+
+    category_map = {}
+    try:
+        tree = ET.parse(categories_path)
+        catalog = tree.getroot()
+        for item in catalog.findall('ITEM'):
+            category_id = item.findtext('CATEGORY')
+            category_name = item.findtext('CATEGORYNAME')
+            if category_id and category_name:
+                try:
+                    category_map[int(category_id)] = category_name
+                except ValueError:
+                    continue
+    except Exception as e:
+        print(f"Error loading categories: {e}")
+        category_map = {}
+
+    category_map_cache = category_map
+    return category_map_cache
+
+
 # API Endpoints
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
-
-
-@app.get("/api/config/status")
-async def config_status():
-    """Check if BrickLink API is configured."""
-    try:
-        # Try to initialize API to check credentials
-        api = CachedBrickLinkAPI()
-        return {
-            "configured": True,
-            "message": "BrickLink API configured successfully"
-        }
-    except ValueError as e:
-        return {
-            "configured": False,
-            "message": str(e)
-        }
-
-
-@app.post("/api/config")
-async def set_config(config: ConfigRequest):
-    """Configure BrickLink API credentials."""
-    try:
-        # Validate credentials by attempting to create API instance
-        # Set environment variables
-        os.environ['BRICKLINK_CONSUMER_KEY'] = config.consumer_key
-        os.environ['BRICKLINK_CONSUMER_SECRET'] = config.consumer_secret
-        os.environ['BRICKLINK_TOKEN'] = config.token
-        os.environ['BRICKLINK_TOKEN_SECRET'] = config.token_secret
-        
-        # Try to initialize and make a test call
-        api = CachedBrickLinkAPI()
-        
-        # Save to .env file
-        env_path = Path.cwd() / '.env'
-        env_content = f"""BRICKLINK_CONSUMER_KEY={config.consumer_key}
-BRICKLINK_CONSUMER_SECRET={config.consumer_secret}
-BRICKLINK_TOKEN={config.token}
-BRICKLINK_TOKEN_SECRET={config.token_secret}
-"""
-        with open(env_path, 'w') as f:
-            f.write(env_content)
-        
-        return {
-            "success": True,
-            "message": "API credentials configured successfully"
-        }
-    except Exception as e:
-        # Clear failed credentials
-        for key in ['BRICKLINK_CONSUMER_KEY', 'BRICKLINK_CONSUMER_SECRET', 
-                   'BRICKLINK_TOKEN', 'BRICKLINK_TOKEN_SECRET']:
-            os.environ.pop(key, None)
-        
-        raise HTTPException(
-            status_code=400,
-            detail=f"Configuration failed: {str(e)}"
-        )
 
 
 @app.post("/api/analyze")
@@ -202,6 +172,9 @@ async def analyze_inventory(file: UploadFile = File(...)):
             finder = MinifigureFinder(inventory, api)
             matches = finder.search_minifigs(minifig_ids, use_cache_only=True)
             
+            # Load category map for proper names
+            category_map = load_category_map()
+            
             # Build response
             complete = [m for m in matches if m.can_build]
             incomplete = [m for m in matches if not m.can_build]
@@ -224,11 +197,26 @@ async def analyze_inventory(file: UploadFile = File(...)):
                             if avg_used is not None:
                                 price_summary['used_condition'] = avg_used
                 
+                # Get proper category name from cache
+                category_name = m.category_name
+                thumbnail_url = None
+                cached_data = api.get_minifig_with_cache(m.minifig_id, use_cache_only=True)
+                if cached_data:
+                    item_data = cached_data.get('item_data', {})
+                    category_id = item_data.get('category_id')
+                    thumbnail_url = item_data.get('thumbnail_url')
+                    if category_id is not None:
+                        try:
+                            category_name = category_map.get(int(category_id), f"Category {category_id}")
+                        except (TypeError, ValueError):
+                            category_name = f"Category {category_id}"
+                
                 return {
                     'minifig_id': m.minifig_id,
                     'minifig_name': m.minifig_name,
                     'year_released': m.year_released,
-                    'category_name': m.category_name,
+                    'category_name': category_name,
+                    'thumbnail_url': thumbnail_url,
                     'total_parts': m.total_parts,
                     'matched_parts': m.matched_parts,
                     'missing_parts': m.missing_parts,
@@ -308,6 +296,52 @@ async def update_cache_prices(background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail=f"API not configured: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating prices: {str(e)}")
+
+
+@app.get("/api/cache/minifigs")
+async def get_cached_minifigs():
+    """Get cached minifigures grouped by category."""
+    try:
+        api = CachedBrickLinkAPI()
+        category_map = load_category_map()
+        minifig_ids = api.get_cached_minifig_ids()
+
+        if not minifig_ids:
+            return {"categories": []}
+
+        categories = {}
+        for minifig_id in minifig_ids:
+            data = api.get_minifig_with_cache(minifig_id, use_cache_only=True)
+            if not data:
+                continue
+            item_data = data.get('item_data', {})
+            name = item_data.get('name', '')
+            category_id = item_data.get('category_id')
+            if category_id is None:
+                category = 'Uncategorized'
+            else:
+                try:
+                    category = category_map.get(int(category_id), f"Category {category_id}")
+                except (TypeError, ValueError):
+                    category = f"Category {category_id}"
+            categories.setdefault(category, []).append({
+                "id": minifig_id,
+                "name": name,
+            })
+
+        grouped = []
+        for category_name in sorted(categories.keys()):
+            items = sorted(categories[category_name], key=lambda item: item["id"])
+            grouped.append({
+                "category": category_name,
+                "items": items,
+            })
+
+        return {"categories": grouped}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"API not configured: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting cached minifigures: {str(e)}")
 
 
 @app.get("/api/search")

@@ -10,6 +10,7 @@ prices on a separate schedule.
 
 Usage (run from workspace root):
     python3 src/update_minifig_prices.py              # Update all cached minifigs
+    python3 src/update_minifig_prices.py --minifig-id SW001
     python3 src/update_minifig_prices.py --minifig-list sw_figures.txt
     python3 src/update_minifig_prices.py --clear      # Clear price cache and rebuild
     python3 src/update_minifig_prices.py --list       # List all cached minifigs
@@ -23,6 +24,7 @@ from pathlib import Path
 from typing import Dict, Set, List
 from datetime import datetime
 from fetch_bricklink_minifig import BrickLinkAPI
+from bricklink_price import fetch_minifig_price
 
 
 class PriceUpdater:
@@ -58,6 +60,10 @@ class PriceUpdater:
         """Save price cache to disk."""
         with open(self.price_cache_file, 'w') as f:
             json.dump(self.price_cache, f, indent=2)
+
+    def get_price_data(self, minifig_id: str) -> Dict:
+        """Get price guide data for a minifigure."""
+        return fetch_minifig_price(self.api, minifig_id)
     
     def get_minifig_ids_to_update(self, target_list: List[str] = None) -> Set[str]:
         """Get list of minifigure IDs to update."""
@@ -68,7 +74,7 @@ class PriceUpdater:
             # Update all currently cached minifigs
             return set(self.minifig_cache.keys())
     
-    def update_prices(self, minifig_ids: Set[str], clear_existing: bool = False):
+    def update_prices(self, minifig_ids: Set[str], clear_existing: bool = False, verbose: bool = False):
         """Update prices for minifigures."""
         try:
             self.api = BrickLinkAPI()
@@ -92,20 +98,18 @@ class PriceUpdater:
         for i, minifig_id in enumerate(sorted(minifig_ids), 1):
             print(f"   {i:3}/{total}  Fetching prices for {minifig_id}...", end='\r')
             
-            try:
-                price_data = self.api.get_price_guide('MINIFIG', minifig_id)
-                
-                if price_data:
-                    self.price_cache[minifig_id] = {
-                        'data': price_data,
-                        'updated': datetime.now().isoformat()
-                    }
-                    updated += 1
-                else:
-                    failed += 1
-                
-            except Exception as e:
+            price_data = self.get_price_data(minifig_id)
+
+            if price_data:
+                self.price_cache[minifig_id] = {
+                    'data': price_data,
+                    'updated': datetime.now().isoformat()
+                }
+                updated += 1
+            else:
                 failed += 1
+                if verbose:
+                    print(f"\n⚠️  No price data returned for {minifig_id}")
         
         print(" " * 70, end='\r')  # Clear line
         
@@ -188,12 +192,18 @@ def main():
         epilog="""
 Examples:
   python3 update_minifig_prices.py              # Update all cached minifigs
+    python3 update_minifig_prices.py --minifig-id SW001
   python3 update_minifig_prices.py --minifig-list sw_figures.txt
   python3 update_minifig_prices.py --clear     # Clear and rebuild cache
   python3 update_minifig_prices.py --list      # Show cached minifigs
         """
     )
     
+    parser.add_argument(
+        '--minifig-id',
+        type=str,
+        help='Single minifigure ID to update (e.g., SW001)'
+    )
     parser.add_argument(
         '--minifig-list',
         type=str,
@@ -208,6 +218,11 @@ Examples:
         '--list',
         action='store_true',
         help='List all cached minifigures and their price status'
+    )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Print detailed errors when a price fetch fails'
     )
     
     args = parser.parse_args()
@@ -229,7 +244,10 @@ Examples:
         sys.exit(1)
     
     # Get minifigures to update
-    if args.minifig_list:
+    if args.minifig_id:
+        minifig_ids = {args.minifig_id.strip().upper()}
+        print(f"📋 Using minifigure ID: {next(iter(minifig_ids))}")
+    elif args.minifig_list:
         minifig_ids = set(load_minifig_list(args.minifig_list))
         if not minifig_ids:
             print("❌ No valid minifigure IDs found in file")
@@ -240,7 +258,7 @@ Examples:
         print(f"📋 Found {len(minifig_ids)} cached minifigures")
     
     # Update prices
-    success = updater.update_prices(minifig_ids, clear_existing=args.clear)
+    success = updater.update_prices(minifig_ids, clear_existing=args.clear, verbose=args.verbose)
     
     if not success:
         sys.exit(1)

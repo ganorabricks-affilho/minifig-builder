@@ -21,19 +21,102 @@ export default function MinifigCard({ minifig, showMissing = false }) {
     return `$${price.toFixed(2)}`
   }
 
+  const getMarketValueUsed = () => {
+    return minifig.prices_6month_average?.used_condition || 0
+  }
+
+  const getProfit = () => {
+    const marketValue = getMarketValueUsed()
+    const partsCost = getTotalPartsValue()
+    return marketValue - partsCost
+  }
+
+  const getProfitColor = () => {
+    const profit = getProfit()
+    if (profit > 0) return '#2ecc71' // green
+    if (profit < 0) return '#e74c3c' // red
+    return '#95a5a6' // gray
+  }
+
   return (
-    <div className="card">
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ marginBottom: '15px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-          <div>
-            <h3>{minifig.minifig_id}</h3>
-            <p style={{ fontSize: '14px', color: '#666' }}>{minifig.minifig_name}</p>
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+          {minifig.thumbnail_url && (
+            <div style={{ flexShrink: 0 }}>
+              <img
+                src={`https:${minifig.thumbnail_url}`}
+                alt={minifig.minifig_id}
+                style={{
+                  width: '80px',
+                  height: '80px',
+                  objectFit: 'contain',
+                  background: '#f5f5f5',
+                  borderRadius: '6px',
+                  border: '1px solid #e0e0e0',
+                }}
+              />
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+              <h3 style={{ margin: 0 }}>{minifig.minifig_id}</h3>
+              <div style={{ fontSize: '24px' }}>{getStatusIcon()}</div>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                margin: 0,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                cursor: 'help',
+              }}
+              title={minifig.minifig_name}
+            >
+              {minifig.minifig_name}
+            </p>
           </div>
-          <div style={{ fontSize: '24px' }}>{getStatusIcon()}</div>
         </div>
       </div>
 
-      <div style={{ marginBottom: '15px' }}>
+      {minifig.prices_6month_average && getTotalPartsValue() >= 0 && (
+        <div style={{
+          padding: '12px 14px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: '6px',
+          marginBottom: '15px',
+          color: 'white',
+          fontSize: '14px',
+        }}>
+          <div style={{ marginBottom: '8px', fontWeight: '700', fontSize: '16px' }}>💰 Financial Analysis</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span>Market Value (Used):</span>
+            <span style={{ fontWeight: '700' }}>{formatPrice(getMarketValueUsed())}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span>Parts listing price:</span>
+            <span style={{ fontWeight: '700' }}>{formatPrice(getTotalPartsValue())}</span>
+          </div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            paddingTop: '8px',
+            borderTop: '1px solid rgba(255,255,255,0.3)',
+            fontWeight: '700',
+            fontSize: '15px',
+            color: getProfitColor(),
+          }}>
+            <span>Potential {getProfit() > 0 ? 'Profit' : 'Loss'}:</span>
+            <span>{formatPrice(Math.abs(getProfit()))}</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: '15px', flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
           <span style={{ color: '#666' }}>Category:</span>
           <span style={{ fontWeight: '600' }}>{minifig.category_name}</span>
@@ -58,33 +141,10 @@ export default function MinifigCard({ minifig, showMissing = false }) {
         </div>
       </div>
 
-      {minifig.prices_6month_average && (
-        <div style={{
-          padding: '10px',
-          background: '#f9f8ff',
-          borderRadius: '6px',
-          marginBottom: '15px',
-          fontSize: '13px',
-        }}>
-          💰 Market Value (6-Month Avg):
-          {minifig.prices_6month_average.new_condition && (
-            <div>New: {formatPrice(minifig.prices_6month_average.new_condition)}</div>
-          )}
-          {minifig.prices_6month_average.used_condition && (
-            <div>Used: {formatPrice(minifig.prices_6month_average.used_condition)}</div>
-          )}
-          {getTotalPartsValue() > 0 && (
-            <div style={{ marginTop: '5px', color: '#667eea', fontWeight: '600' }}>
-              Parts Cost: {formatPrice(getTotalPartsValue())}
-            </div>
-          )}
-        </div>
-      )}
-
       <button
         className="btn btn-secondary"
         onClick={() => setShowDetails(!showDetails)}
-        style={{ width: '100%' }}
+        style={{ width: '100%', marginTop: 'auto' }}
       >
         {showDetails ? '▼ Hide Details' : '▶ Show Details'}
       </button>
