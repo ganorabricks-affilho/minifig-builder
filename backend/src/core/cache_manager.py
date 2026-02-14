@@ -24,8 +24,8 @@ class CachedBrickLinkAPI(BrickLinkAPI):
         """Initialize cached API."""
         super().__init__()
         if cache_dir is None:
-            # Use root workspace directory for cache
-            cache_dir = Path.cwd() / '.api_cache'
+            # Use workspace root (minifig-builder) for cache
+            cache_dir = Path(__file__).resolve().parents[3] / '.api_cache'
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(exist_ok=True)
         self.minifig_cache_file = self.cache_dir / 'minifigures.json'

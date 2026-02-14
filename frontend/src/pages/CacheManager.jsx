@@ -4,12 +4,22 @@ import api from '../api/client'
 export default function CacheManager({ onError }) {
   const [cacheStatus, setCacheStatus] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [updating, setUpdating] = useState(false)
   const [stats, setStats] = useState(null)
+  const [cachedMinifigs, setCachedMinifigs] = useState([])
+  const [minifigLoading, setMinifigLoading] = useState(true)
+  const [expandedCategories, setExpandedCategories] = useState({})
+
+  const toggleCategory = (categoryName) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [categoryName]: !prev[categoryName],
+    }))
+  }
 
   useEffect(() => {
     fetchCacheStatus()
     fetchStats()
+    fetchCachedMinifigs()
   }, [])
 
   const fetchCacheStatus = async () => {
@@ -33,17 +43,15 @@ export default function CacheManager({ onError }) {
     }
   }
 
-  const handleUpdatePrices = async () => {
-    setUpdating(true)
+  const fetchCachedMinifigs = async () => {
+    setMinifigLoading(true)
     try {
-      const response = await api.updatePrices()
-      await new Promise((resolve) => setTimeout(resolve, 2000)) // Wait 2 seconds
-      await fetchCacheStatus()
-      await fetchStats()
+      const response = await api.getCachedMinifigs()
+      setCachedMinifigs(response.data.categories || [])
     } catch (err) {
-      onError(err.response?.data?.detail || 'Failed to update prices')
+      onError(err.response?.data?.detail || 'Failed to load cached minifigures')
     } finally {
-      setUpdating(false)
+      setMinifigLoading(false)
     }
   }
 
@@ -106,53 +114,6 @@ export default function CacheManager({ onError }) {
         )}
       </div>
 
-      {/* Cache Details */}
-      <div style={{ marginTop: '30px', padding: '20px', background: '#f9f8ff', borderRadius: '8px' }}>
-        <h3 style={{ marginBottom: '15px', color: '#667eea' }}>📂 Cache Details</h3>
-        <div style={{ fontSize: '14px', color: '#666', lineHeight: '1.8' }}>
-          <div>
-            <strong>Minifigure Cache File:</strong>
-            <br />
-            <code style={{ background: '#fff', padding: '8px', borderRadius: '4px', display: 'block', marginTop: '5px', fontSize: '12px', overflow: 'auto' }}>
-              {cacheStatus.minifig_cache_file}
-            </code>
-          </div>
-          <div style={{ marginTop: '15px' }}>
-            <strong>Price Cache File:</strong>
-            <br />
-            <code style={{ background: '#fff', padding: '8px', borderRadius: '4px', display: 'block', marginTop: '5px', fontSize: '12px', overflow: 'auto' }}>
-              {cacheStatus.price_cache_file}
-            </code>
-          </div>
-        </div>
-      </div>
-
-      {/* Price Update Section */}
-      <div style={{ marginTop: '30px', padding: '20px', background: '#fffaf0', borderRadius: '8px', borderLeft: '4px solid #ff9800' }}>
-        <h3 style={{ marginBottom: '15px', color: '#ff9800' }}>💰 Update Prices</h3>
-        <p style={{ color: '#666', marginBottom: '15px' }}>
-          Update the cached prices for all minifigures. This will fetch fresh data from BrickLink API.
-        </p>
-        <button
-          className="btn btn-primary"
-          onClick={handleUpdatePrices}
-          disabled={updating || cacheStatus.minifig_count === 0}
-        >
-          {updating ? (
-            <>
-              <span className="spinner"></span> Updating Prices...
-            </>
-          ) : (
-            '📊 Update All Prices'
-          )}
-        </button>
-        {cacheStatus.minifig_count === 0 && (
-          <p style={{ color: '#ff9800', fontSize: '12px', marginTop: '10px' }}>
-            ⚠️ No minifigures in cache. Run cache_valuable_minifigs.py first.
-          </p>
-        )}
-      </div>
-
       {/* Cache Statistics */}
       {stats?.latest_analysis && (
         <div style={{ marginTop: '30px', padding: '20px', background: '#f0f8ff', borderRadius: '8px', borderLeft: '4px solid #667eea' }}>
@@ -180,35 +141,71 @@ export default function CacheManager({ onError }) {
         </div>
       )}
 
-      {/* Help Section */}
-      <div style={{ marginTop: '30px', padding: '20px', background: '#f9f9f9', borderRadius: '8px' }}>
-        <h3 style={{ marginBottom: '15px', color: '#333' }}>❓ How to Populate Cache</h3>
-        <p style={{ color: '#666', marginBottom: '10px' }}>
-          To build the cache of minifigures, run the Python cache script from your terminal:
+      {/* Cached Minifigures */}
+      <div style={{ marginTop: '30px', padding: '20px', background: '#f7f7fb', borderRadius: '8px', borderLeft: '4px solid #4b6cb7' }}>
+        <h3 style={{ marginBottom: '15px', color: '#4b6cb7' }}>🧾 Cached Minifigures</h3>
+        <p style={{ color: '#666', marginBottom: '15px' }}>
+          ID and name grouped by category.
         </p>
-        <code
-          style={{
-            background: '#fff',
-            padding: '12px',
-            borderRadius: '4px',
-            display: 'block',
-            fontSize: '13px',
-            overflow: 'auto',
-            margin: '10px 0',
-          }}
-        >
-          python3 src/cache_valuable_minifigs.py --theme sw --min-price 2.0
-        </code>
-        <p style={{ color: '#666', fontSize: '13px', marginTop: '10px' }}>
-          <strong>Parameters:</strong>
-          <br />
-          • <code>--theme</code>: Theme prefix (sw, sh, hp, cas, etc.)
-          <br />
-          • <code>--min-price</code>: Minimum price threshold (default: 2.0)
-          <br />
-          • Multiple themes: <code>--theme sw sh hp</code>
-        </p>
+        {minifigLoading ? (
+          <div className="loading" style={{ padding: 0 }}>
+            <div className="spinner"></div>
+            <span>Loading cached minifigures...</span>
+          </div>
+        ) : cachedMinifigs.length === 0 ? (
+          <div className="alert alert-info">
+            <span>ℹ️</span> No cached minifigures found.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: '16px' }}>
+            {cachedMinifigs.map((group) => (
+              <div key={group.category} style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <div
+                  onClick={() => toggleCategory(group.category)}
+                  style={{
+                    fontWeight: 700,
+                    padding: '12px 14px',
+                    color: '#333',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#f0f0f5',
+                    borderRadius: '8px 8px 0 0',
+                  }}
+                >
+                  <span>{group.category} ({group.items.length})</span>
+                  <span style={{ fontSize: '18px' }}>{expandedCategories[group.category] ? '▼' : '▶'}</span>
+                </div>
+                {expandedCategories[group.category] && (
+                  <div style={{ display: 'grid', gap: '6px', padding: '12px 14px' }}>
+                    {group.items.map((item) => (
+                      <div key={item.id} style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+                        <a
+                          href={`https://www.bricklink.com/v2/catalog/catalogitem.page?M=${item.id.toUpperCase()}#T=P`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontFamily: 'monospace',
+                            color: '#4b6cb7',
+                            minWidth: '70px',
+                            textDecoration: 'none',
+                            fontWeight: '500',
+                          }}
+                        >
+                          {item.id}
+                        </a>
+                        <div style={{ color: '#333' }}>{item.name || 'Unknown'}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
     </div>
   )
 }

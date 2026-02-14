@@ -122,27 +122,35 @@ def download_assets(assets: List[Dict], data_folder: Path) -> Path:
 
 
 def extract_csv_from_zip(zip_filepath: Path, data_folder: Path) -> bool:
-    """Extract M.csv from the items folder in downloads.zip."""
-    print(f"\n📦 Extracting M.csv from {zip_filepath.name}...")
+    """Extract M.csv and categories.xml from downloads.zip."""
+    print(f"\n📦 Extracting M.csv and categories.xml from {zip_filepath.name}...")
     
     try:
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
-            # Look for items/M.csv in the zip
-            target_file = 'items/M.csv'
-            
-            if target_file not in zip_ref.namelist():
-                print(f"❌ {target_file} not found in zip file.")
+            target_csv = 'items/M.csv'
+            target_categories = 'categories.xml'
+
+            missing_files = [
+                name for name in (target_csv, target_categories)
+                if name not in zip_ref.namelist()
+            ]
+            if missing_files:
+                print(f"❌ Missing files in zip: {', '.join(missing_files)}")
                 return False
-            
-            # Extract the file
-            csv_data = zip_ref.read(target_file)
+
+            csv_data = zip_ref.read(target_csv)
             csv_filepath = data_folder / 'M.csv'
-            
             with open(csv_filepath, 'wb') as f:
                 f.write(csv_data)
-            
             size_kb = len(csv_data) / 1024
             print(f"✅ Extracted M.csv ({size_kb:.2f} KB)")
+
+            categories_data = zip_ref.read(target_categories)
+            categories_filepath = data_folder / 'categories.xml'
+            with open(categories_filepath, 'wb') as f:
+                f.write(categories_data)
+            categories_kb = len(categories_data) / 1024
+            print(f"✅ Extracted categories.xml ({categories_kb:.2f} KB)")
             return True
             
     except zipfile.BadZipFile as e:
@@ -172,7 +180,7 @@ def main():
     
     # Setup data folder
     script_dir = Path(__file__).parent
-    data_folder = script_dir / DATA_FOLDER
+    data_folder = script_dir.parent / DATA_FOLDER
     
     # Clear existing files
     clear_data_folder(data_folder)

@@ -5,7 +5,6 @@ export default function Header({ currentPage, setCurrentPage }) {
     { id: 'upload', label: '📤 Upload' },
     { id: 'results', label: '📊 Results' },
     { id: 'cache', label: '💾 Cache' },
-    { id: 'settings', label: '⚙️ Settings' },
   ]
 
   return (

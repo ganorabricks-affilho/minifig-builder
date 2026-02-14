@@ -24,6 +24,7 @@ from typing import Dict, List, Tuple
 from datetime import datetime
 from dataclasses import asdict
 from fetch_bricklink_minifig import BrickLinkAPI
+from bricklink_price import fetch_minifig_price
 
 
 class ValueableMinifigCache:
@@ -139,10 +140,7 @@ class ValueableMinifigCache:
     
     def get_price_data(self, minifig_id: str) -> Dict:
         """Get price guide data for a minifigure."""
-        try:
-            return self.api.get_price_guide('MINIFIG', minifig_id)
-        except:
-            return {}
+        return fetch_minifig_price(self.api, minifig_id)
     
     def get_minifig_parts(self, minifig_id: str) -> List[Dict]:
         """Get parts list for a minifigure."""

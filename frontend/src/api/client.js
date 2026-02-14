@@ -10,10 +10,6 @@ const client = axios.create({
 })
 
 export const api = {
-  // Config endpoints
-  checkConfig: () => client.get('/api/config/status'),
-  setConfig: (credentials) => client.post('/api/config', credentials),
-
   // Analysis endpoints
   analyzeInventory: (file) => {
     const formData = new FormData()
@@ -28,7 +24,7 @@ export const api = {
 
   // Cache endpoints
   getCacheStatus: () => client.get('/api/cache/status'),
-  updatePrices: () => client.post('/api/cache/update-prices'),
+  getCachedMinifigs: () => client.get('/api/cache/minifigs'),
 
   // Search endpoints
   searchMinifigs: (query, theme) =>

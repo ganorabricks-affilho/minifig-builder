@@ -7,7 +7,7 @@ export default function Results({ onError }) {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all') // all, complete, incomplete
   const [searchQuery, setSearchQuery] = useState('')
-  const [minMatchPercentage, setMinMatchPercentage] = useState(0)
+  const [minMatchPercentage, setMinMatchPercentage] = useState(100)
   const [themes, setThemes] = useState([])
   const [selectedTheme, setSelectedTheme] = useState('')
 
