@@ -76,7 +76,7 @@ class ValueableMinifigCache:
         
         return themes
     
-    def __init__(self, cache_dir: Path = None, min_price: float = 3.0):
+    def __init__(self, cache_dir: Path = None, min_price: float = 3.0, cache_all: bool = False):
         if cache_dir is None:
             # Use root workspace directory for cache
             script_dir = Path(__file__).parent
@@ -86,6 +86,7 @@ class ValueableMinifigCache:
         self.minifig_cache_file = self.cache_dir / 'minifigures.json'
         self.price_cache_file = self.cache_dir / 'minifig_prices.json'
         self.min_price = min_price
+        self.cache_all = cache_all
         
         # Parse themes from CSV
         self._themes = self._parse_themes_from_csv()
@@ -152,6 +153,9 @@ class ValueableMinifigCache:
     
     def is_valuable(self, price_data: Dict, price_field: str = 'ordered_used') -> Tuple[bool, float]:
         """Check if minifigure meets price criteria."""
+        if self.cache_all:
+            avg_price = price_data.get(price_field, {}).get('avg_price', 0)
+            return True, avg_price
         if price_field not in price_data:
             return False, 0
         
@@ -172,7 +176,10 @@ class ValueableMinifigCache:
         minifig_ids = theme_data['ids']
         
         print(f"\n📊 Caching {theme_name} minifigures ({len(minifig_ids)} IDs from CSV)...")
-        print(f"   Filtering for avg_price > ${self.min_price}")
+        if self.cache_all:
+            print("   Caching all minifigures regardless of price")
+        else:
+            print(f"   Filtering for avg_price > ${self.min_price}")
         print("-" * 70)
         
         for minifig_id in minifig_ids:
@@ -197,11 +204,11 @@ class ValueableMinifigCache:
             # Get price data
             price_data = self.get_price_data(minifig_id)
             
-            if not price_data:
+            if not price_data and not self.cache_all:
                 continue
             
             # Check if meets price criteria
-            is_valuable, avg_price = self.is_valuable(price_data)
+            is_valuable, avg_price = self.is_valuable(price_data or {})
             
             if is_valuable:
                 self.valuable += 1
@@ -215,19 +222,24 @@ class ValueableMinifigCache:
                     'parts': parts
                 }
                 
-                # Cache the price
-                self.price_cache[minifig_id] = {
-                    'data': price_data,
-                    'updated': datetime.now().isoformat()
-                }
+                # Cache the price when available
+                if price_data:
+                    self.price_cache[minifig_id] = {
+                        'data': price_data,
+                        'updated': datetime.now().isoformat()
+                    }
                 self.cached += 1
                 
                 # Get minifig name
                 minifig_name = item_data.get('name', 'Unknown')
                 parts_count = len(parts)
                 
-                condition = 'Used' if 'ordered_used' in price_data else 'New'
-                print(f"✅ {minifig_id} - ${avg_price:.2f} ({condition}) - {parts_count} parts - {minifig_name[:35]}")
+                if price_data:
+                    condition = 'Used' if 'ordered_used' in price_data else 'New'
+                    price_label = f"${avg_price:.2f} ({condition})"
+                else:
+                    price_label = "No price data"
+                print(f"✅ {minifig_id} - {price_label} - {parts_count} parts - {minifig_name[:35]}")
                 
                 # Save periodically
                 if self.cached % 10 == 0:
@@ -247,7 +259,10 @@ class ValueableMinifigCache:
         print(f"Minifigures checked:    {self.checked}")
         print(f"Already cached (skipped): {self.skipped}")
         print(f"Valid minifigures:      {self.valid}")
-        print(f"Valuable (>${self.min_price}):       {self.valuable}")
+        if self.cache_all:
+            print(f"Valuable (all cached):    {self.valuable}")
+        else:
+            print(f"Valuable (>${self.min_price}):       {self.valuable}")
         print(f"Cached minifigures:     {self.cached}")
         print(f"Minifigure cache:       {self.minifig_cache_file}")
         print(f"Price cache:            {self.price_cache_file}")
@@ -260,7 +275,7 @@ class ValueableMinifigCache:
             print(f"   • Minifigure data (item details + parts list)")
             print(f"   • Price data (6-month + current market prices)")
         else:
-            print("\n⚠️  No valuable minifigures found matching criteria")
+            print("\n⚠️  No minifigures cached matching criteria")
 
 
 def main():
@@ -289,6 +304,11 @@ Examples:
         default=2.0,
         help='Minimum average price to cache (default: $2.00)'
     )
+    parser.add_argument(
+        '--all-prices',
+        action='store_true',
+        help='Cache all minifigures regardless of price'
+    )
     
     args = parser.parse_args()
     
@@ -296,7 +316,7 @@ Examples:
     print("💰 Valuable Minifigure Cache")
     print("=" * 70)
     
-    cacher = ValueableMinifigCache(min_price=args.min_price)
+    cacher = ValueableMinifigCache(min_price=args.min_price, cache_all=args.all_prices)
     
     # Normalize theme names to lowercase
     if args.themes:

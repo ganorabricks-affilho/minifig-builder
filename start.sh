@@ -75,11 +75,17 @@ BACKEND_PID=$!
 
 sleep 2
 
-echo -e "${YELLOW}Starting Frontend...${NC}"
-(cd frontend && npm run dev) &
-FRONTEND_PID=$!
+read -r -p "Start frontend dev server? [y/N] " START_FRONTEND
+if [[ "$START_FRONTEND" =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}Starting Frontend...${NC}"
+    (cd frontend && npm run dev) &
+    FRONTEND_PID=$!
 
-sleep 2
+    sleep 2
+else
+    echo -e "${YELLOW}Skipping frontend start${NC}"
+    FRONTEND_PID=
+fi
 
 echo -e "${GREEN}✅ Both services started!${NC}"
 echo ""
