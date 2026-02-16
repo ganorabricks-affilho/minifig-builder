@@ -133,6 +133,10 @@ export default function MinifigCard({ minifig, showMissing = false }) {
             {minifig.matched_parts}/{minifig.total_parts}
           </span>
         </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <span style={{ color: '#666' }}>Buildable Copies:</span>
+          <span style={{ fontWeight: '600' }}>{minifig.buildable_count ?? 0}</span>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#666' }}>Match:</span>
           <span style={{ fontWeight: '700', color: '#667eea' }}>

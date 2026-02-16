@@ -218,6 +218,7 @@ async def analyze_inventory(file: UploadFile = File(...)):
                     'category_name': category_name,
                     'thumbnail_url': thumbnail_url,
                     'total_parts': m.total_parts,
+                    'buildable_count': m.buildable_count,
                     'matched_parts': m.matched_parts,
                     'missing_parts': m.missing_parts,
                     'match_percentage': m.match_percentage,

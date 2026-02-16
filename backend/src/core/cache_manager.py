@@ -8,13 +8,9 @@ from dataclasses import asdict
 import sys
 import os
 
-# Import from sibling package
-sys.path.insert(0, str(Path(__file__).parent.parent))
-try:
-    from fetch_bricklink_minifig import BrickLinkAPI
-except ImportError:
-    # Fallback for when running from different directories
-    from ..fetch_bricklink_minifig import BrickLinkAPI
+# Import from root src package
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'src'))
+from fetch_bricklink_minifig import BrickLinkAPI
 
 
 class CachedBrickLinkAPI(BrickLinkAPI):

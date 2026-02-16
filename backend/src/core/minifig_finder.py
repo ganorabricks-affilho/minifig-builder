@@ -5,10 +5,11 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
+from collections import defaultdict
 import sys
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add root src directory to path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'src'))
 from fetch_bricklink_minifig import MinifigPart
 from .cache_manager import CachedBrickLinkAPI
 from .inventory_parser import InventoryParser
@@ -27,8 +28,10 @@ class MinifigMatch:
     match_percentage: float
     can_build: bool
     missing_details: List[Dict]
+    buildable_count: int = 0
     matched_details: List[Dict] = None
     price_data: Optional[Dict] = None
+    profit: float = 0.0
 
 
 class MinifigureFinder:
@@ -38,6 +41,37 @@ class MinifigureFinder:
         """Initialize minifigure finder."""
         self.inventory = inventory
         self.api = api
+
+    def calculate_profit(self, match: MinifigMatch) -> float:
+        """Calculate profit for a minifigure match.
+
+        Profit = Market value (6-month used condition average) - Parts total cost
+        Uses used condition price (more realistic for resale).
+        Falls back to new condition if used data unavailable.
+        Returns 0 if price data is unavailable.
+        """
+        if not match.matched_details or not match.price_data:
+            return 0.0
+
+        parts_cost = sum(p['total_price'] for p in match.matched_details)
+        price_info = match.price_data.get('data', {})
+        if not price_info:
+            return 0.0
+
+        ordered_used = price_info.get('ordered_used', {})
+        ordered_new = price_info.get('ordered_new', {})
+        market_price = ordered_used.get('avg_price') or ordered_new.get('avg_price')
+
+        if market_price is None:
+            return 0.0
+
+        return market_price - parts_cost
+
+    def calculate_parts_cost(self, match: MinifigMatch) -> float:
+        """Calculate total cost of all parts in a minifigure (for sorting partial matches)."""
+        if not match.matched_details:
+            return 0.0
+        return sum(p['total_price'] for p in match.matched_details)
     
     def check_minifig(self, minifig_id: str, use_cache_only: bool = False) -> Optional[MinifigMatch]:
         """Check if a minifigure can be built from inventory."""
@@ -65,11 +99,14 @@ class MinifigureFinder:
         matched = 0
         missing = []
         matched_parts = []
+        build_limits = []
         
         for part in regular_parts:
             has_enough, available, remarks, price = self.inventory.has_part(
                 part.part_id, part.color_id, part.quantity
             )
+            if part.quantity > 0:
+                build_limits.append(available // part.quantity)
             
             if has_enough:
                 matched += 1
@@ -98,6 +135,7 @@ class MinifigureFinder:
         
         total = len(regular_parts)
         match_pct = (matched / total * 100) if total > 0 else 0
+        buildable_count = min(build_limits) if build_limits else 0
         
         return MinifigMatch(
             minifig_id=minifig_id,
@@ -109,17 +147,23 @@ class MinifigureFinder:
             missing_parts=total - matched,
             match_percentage=match_pct,
             can_build=matched == total,
+            buildable_count=buildable_count,
             missing_details=missing,
             matched_details=matched_parts,
             price_data=price_info
         )
     
     def search_minifigs(self, minifig_ids: List[str], use_cache_only: bool = False) -> List[MinifigMatch]:
-        """Search multiple minifigures."""
+        """Search multiple minifigures with part allocation tracking for both complete and partial matches.
+
+        Complete matches are allocated first, sorted by match % and profit.
+        Partial matches are allocated with remaining parts, sorted by match % and parts cost.
+        Once a part is allocated, it's no longer available for other minifigures.
+        """
         print(f"🔍 Checking {len(minifig_ids)} minifigures...")
         if use_cache_only:
             print("   (Using cached data only)")
-        
+
         matches = []
         
         for i, minifig_id in enumerate(minifig_ids, 1):
@@ -135,8 +179,119 @@ class MinifigureFinder:
                 time.sleep(0.15)
         
         print()  # New line
-        matches.sort(key=lambda m: (m.match_percentage, m.year_released or 0), reverse=True)
-        return matches
+
+        # Calculate metrics for all matches
+        for match in matches:
+            match.profit = self.calculate_profit(match) if match.can_build else 0.0
+
+        # Separate complete and partial matches
+        complete_matches = [m for m in matches if m.can_build]
+        partial_matches = [m for m in matches if m.matched_parts > 0]
+
+        # Sort complete matches: match %, profit, year
+        complete_matches.sort(
+            key=lambda m: (m.match_percentage, m.profit, m.year_released or 0),
+            reverse=True
+        )
+
+        # Sort partial matches: match %, parts cost, year
+        partial_matches.sort(
+            key=lambda m: (m.match_percentage, self.calculate_parts_cost(m), m.year_released or 0),
+            reverse=True
+        )
+
+        # Second pass: allocate parts and validate which can actually be built
+        print("📦 Allocating parts to minifigures (complete first, then partial)...\n")
+        allocated_parts = defaultdict(int)  # (part_id, color_id) -> quantity allocated
+
+        final_results = []
+
+        for match in complete_matches:
+            can_still_build = True
+            parts_to_allocate = []
+            max_copies = None
+
+            for part_detail in match.matched_details:
+                part_id = part_detail['part_id']
+                color_id = part_detail['color_id']
+                quantity_needed = part_detail['quantity']
+
+                has_enough, available, remarks, price = self.inventory.has_part(
+                    part_id, color_id, quantity_needed
+                )
+                already_allocated = allocated_parts[(part_id, color_id)]
+                remaining_available = available - already_allocated
+
+                if remaining_available < quantity_needed:
+                    can_still_build = False
+                    break
+
+                parts_to_allocate.append(((part_id, color_id), quantity_needed))
+                copies_for_part = remaining_available // quantity_needed
+                if max_copies is None:
+                    max_copies = copies_for_part
+                else:
+                    max_copies = min(max_copies, copies_for_part)
+
+            if can_still_build:
+                copies_to_allocate = max_copies if max_copies is not None else 1
+                for (part_id, color_id), qty in parts_to_allocate:
+                    allocated_parts[(part_id, color_id)] += qty * copies_to_allocate
+                match.buildable_count = copies_to_allocate
+                final_results.append(match)
+
+        for match in partial_matches:
+            available_parts = []
+            unavailable_parts = []
+
+            for part_detail in match.matched_details:
+                part_id = part_detail['part_id']
+                color_id = part_detail['color_id']
+                quantity_needed = part_detail['quantity']
+
+                has_enough, available, remarks, price = self.inventory.has_part(
+                    part_id, color_id, quantity_needed
+                )
+                already_allocated = allocated_parts[(part_id, color_id)]
+                remaining_available = available - already_allocated
+
+                if remaining_available >= quantity_needed:
+                    available_parts.append(part_detail)
+                else:
+                    unavailable_parts.append({
+                        'part_id': part_id,
+                        'part_name': part_detail['part_name'],
+                        'color_id': color_id,
+                        'color_name': part_detail['color_name'],
+                        'needed': quantity_needed,
+                        'available': max(0, remaining_available),
+                        'short_by': quantity_needed - max(0, remaining_available),
+                        'price': part_detail['price'],
+                        'remarks': "Parts reserved for higher-priority minifigures"
+                    })
+
+            if not available_parts:
+                continue
+            if len(available_parts) == match.total_parts:
+                continue
+
+            partial_match = MinifigMatch(
+                minifig_id=match.minifig_id,
+                minifig_name=match.minifig_name,
+                year_released=match.year_released,
+                category_name=match.category_name,
+                total_parts=match.total_parts,
+                matched_parts=len(available_parts),
+                missing_parts=match.total_parts - len(available_parts),
+                match_percentage=(len(available_parts) / match.total_parts) * 100,
+                can_build=False,
+                missing_details=unavailable_parts + match.missing_details,
+                matched_details=available_parts,
+                price_data=match.price_data
+            )
+            final_results.append(partial_match)
+
+        return final_results
 
 
 def save_results_json(matches: List[MinifigMatch], output_file: Path):
@@ -171,6 +326,7 @@ def save_results_json(matches: List[MinifigMatch], output_file: Path):
             'year_released': d['year_released'],
             'category_name': d['category_name'],
             'total_parts': d['total_parts'],
+            'buildable_count': d.get('buildable_count', 0),
             'matched_parts': d['matched_parts'],
             'missing_parts': d['missing_parts'],
             'match_percentage': d['match_percentage'],
